@@ -1,0 +1,56 @@
+Installation
+============
+On certain debian platform, you have to use "apt-get install libsqlite3-dev" to enable sqlite3 support.
+
+Two ways to use SQLAlchemy
+==========================
+1. ORM method
+    Recommend. It's a high level API to core method. Tables are mapped to Python object/class directly. Good for domain-centric work.
+    The problems: 
+      a. Learning cost very high since you have to master SQL and Python and SQLAlchemy and build the mapper.
+      b. Very difficult to handle complicated mapping relationship
+      c. Table MUST contains "PRIMARY KEY" (Read: http://docs.sqlalchemy.org/en/rel_1_1/faq/ormconfiguration.html#faq-mapper-primary-key)
+      d. Table "must" have __tablename__ defined. (Read: )
+2. Core method
+    2.1 Raw SQL
+        Call SQL language directly. It's useful when SQL statements are very complicated.
+    2.2 SQLAlchemy SQL expression Language 
+        This provides the most robust usage and a schema-centric usage paradigm
+
+Connectionless vs Connection
+==============================
+Use engine.conn() to get connection, then operate on db, it's called connection mode
+Use engine() directly, it's called connectionless mode
+If you want to use transaction, better use connection mode. Otherwise, it's same.
+
+Key concept
+=============================
+>>> class User(Base):
+...     __tablename__ = 'users'
+...
+...     id = Column(Integer, primary_key=True)
+...     name = Column(String)
+...     fullname = Column(String)
+...     password = Column(String)
+Schema: is table column names, formats, relationship with other tables, etc. This defines the table orgnization
+        Construted by Table, Column, ForeignKey, Sequence, Index, etc.
+        It's the building blocks for database metadata.
+MetaData: a collection of Tables and their associated schema constructs. Constructed by Table and Bind (to an engine)
+DDL: data definition language (INSERT/DELETE/etc)
+declarative base: it's a wrapper over mapper() operation, to define mapping between user defined classes and database table
+
+Best Practices
+==============================
+1. use RAW SQL for query
+2. use SQL expression for CREATE/ALTER/UPDATE/DELETE table
+  Example: If we have a "User" class, and "_table=Table('users', metadata, autoload=True)"
+    insert: _table.insert().values(f1=value1,f2=value2,)
+    update: _table.update().values(f1=newvalue1,f2=newvalue2).where(_table.c.f1==value1).where(_table.c.f2==value2)
+    delete: _table.delete().where(_table.c.f1==value1).where(_table.c.f2==value2)
+    insert/update/delete in batch: 
+      conn.execute(_table.insert(), [
+      {’user_id’: 1, ’email_address’ : ’jack@yahoo.com’},
+      {’user_id’: 1, ’email_address’ : ’jack@msn.com’},
+      {’user_id’: 2, ’email_address’ : ’www@www.org’},
+      {’user_id’: 2, ’email_address’ : ’wendy@aol.com’},
+      ])
