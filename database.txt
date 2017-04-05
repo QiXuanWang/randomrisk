@@ -1,0 +1,20 @@
+NoSQL vs SQL:
+    1. MongoDB is very popular. (Yu:  used by vnpy and quokka)
+    2. The db size grow rapidly since nosql stores in json format and the keys are necessary for everything
+    3. Transaction is critical at certain conditions.
+    4. NoSQL is widely taken as esay to use. It is indeed but the syntax is not so clean.
+    5. NoSQL is very good for unstructured data and horizontal scalability
+    6. Above items are from web search. 
+
+SQL: (We choose postgresql)
+    1. Very stable over past 20 years and widely available in almost all OS
+    2. Still in rapid developing
+    3. Both native replication/clustering capability (hot-standby) and 3rd party solutions (Citus) exist
+
+Time-Series DB:
+    1. InfulxDB is solid choice. (Check grafana). Also check Prometheus
+    2. Kafka and TimeScaleDB looks interesting too (Kafaka for superset is my next project, see my comment in the issue)
+    3. Recently (2017/4/5) a new time-series DB (TimescalDB) is developed based on postgresql (Ref: "Building a scalable time-series database on postgreSQL")
+    4. Tgres is another time-series db build on PostSQL written in Go, but without extension requirement. (Yu: sounds better?)
+
+
