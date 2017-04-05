@@ -32,12 +32,14 @@ Key concept
 ...     name = Column(String)
 ...     fullname = Column(String)
 ...     password = Column(String)
-Schema: is table column names, formats, relationship with other tables, etc. This defines the table orgnization
+Schema: database structure. It is table columns, formats, relationship with other tables, etc. This defines the table orgnization
         Construted by Table, Column, ForeignKey, Sequence, Index, etc.
         It's the building blocks for database metadata.
-MetaData: a collection of Tables and their associated schema constructs. Constructed by Table and Bind (to an engine)
+MetaData: a collection of Tables and their associated schema constructs. Constructed by Table and Bind (to an engine). Someone refers to "schema" too.
+Session: It represents an intermediary zone between all the Python model objects and the database. Changes are made to objects in session only until session.commit() is executed.
 DDL: data definition language (INSERT/DELETE/etc)
 declarative base: it's a wrapper over mapper() operation, to define mapping between user defined classes and database table
+Reflection: use reflection to determine the structure of the existing database, then use it as it is.
 
 Best Practices
 ==============================
@@ -54,3 +56,6 @@ Best Practices
       {’user_id’: 2, ’email_address’ : ’www@www.org’},
       {’user_id’: 2, ’email_address’ : ’wendy@aol.com’},
       ])
+3. Use many small tables to store  stock informations. "Date","Open","High","Low","Close","AdjClose","Volume". Notes we include "Date" because many stocks traded at different period due to suspend or whatever. Same for NFQ tables with "TurnOver", "MA", etc. Daily/60Min/15Min/5Min/Ticks should be different tables. Note these tables should be named as "code_type_timebase_source" etc..
+    Then use some other tables to store meta information like one table for "Code", "Name", "Industry".
+    So most tables are not related except for the meta information. We may try to query.
