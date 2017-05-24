@@ -1,0 +1,245 @@
+======================
+Installation
+======================
+Use pip install superset would solve.
+Official support is for Python2.7 but Python3 works
+python bin/superset runserver -d 
+
+=============================
+How to add data/table/slice into DB:
+=============================
+1. add load_stock() function in data/__init__.py
+    1.1 Define tbl_name = "stock_table"
+    1.2 prepare/store data for DB, in superset, pandas.to_sql() is used.
+        Notice, dtype={ } is necessary for later sqllab manipulation. Every type in dtype should be the real column name in DB. And they should be in json data set but json data could contains more. For example, in birht_names.json, we have additional "sum_boys" and "sum_girls", which I guess will be used in metrics parameter?
+    1.3 create tbl object: 
+        tbl = TBL(table_name=tbl_name) # generate a table with tbl_name
+        TBL is  a "models.SqlaTable" object
+    1.4 submit tbl into db with traditional sqlalchemy db.session.commit()
+    1.5 createl slc = Slice(...) object
+        Slice is a "models.Slice" object. Below is parameter meanings:
+        PARAMETER:   TYPE, default/COMMENT
+        slice_name: string, as indicated
+        viz_type: string, 'bubble', 'heatmap', etc, predefined, customizable
+        datasource_type: string, used in Sources->"Datasource&Chart Type" view
+        datasource_id: tbl.id, multiple slice could use same table?
+        params: json, get_slice_json(...), get_slice_json function will update default parameters with user defined values. Read "defaults" for more info. Notice this parameter will be different for different viz_type.
+            defaults: json obj, default params for Slice obj
+            viz_type: string, same as top level viz_type par
+            since: string, datetime for data begin
+            until: string, datetime for data end
+            series: string, bubble chart specialized, use same color for 1 serie
+            limit: string, TODO
+            entity: string, TODO
+            x: string, x label name
+            y: string, y label name
+            size: string, lable for bubble type?
+            max_bubble_size: string, string of a integer for bubble size
+            num_period_compare: string, period
+        Final merge_slice(slc) step is to add slice into DB
+        when there is a dashboard, Slice() defined should be added and committed into DB
+    1.6 create dashboard if necessary, dash = Dash()
+
+2. add "load_stocks()" function in cli.py.
+    2.1 This is the major entrance to load data. called by superset/__init__.py, and will call data.load_stock()
+
+3. Even if add data directly into DB, Table format should follow the guideline especially for DateTime format.
+
+
+=============================
+How to add new viz type
+=============================
+First, my comment on github on bubble viz:
+1. You need to run "pd.to_datetime()" to convert datetime to SQL recognized datetime format.
+2. In pd.to_sql(), dtype parameter is necessary for at least 3 parameter:
+    a. DateTime() for your datetime parameter.
+    b. Series parameter for bubble chart must be String() type
+    c. Entity parameter for bubble chart must be String() type
+    Otherwise, none of above could recognize correctly in sqlab somehow. Maybe it's common sense but just record here in case it's not.
+3. Metric is probably defined in views/core.py, and showed in Sources->"List Sql Metric"
+
+Second, the real part, use BubbleViz as example
+1. add "class BubbleViz" in viz.py, notice some important parameters and functions to be defined
+
+class BubbleViz(NVD3Viz):
+
+    """Based on the NVD3 bubble chart"""
+    # calls BaseViz.__init__(....)
+
+    viz_type = "bubble"  # necessary 
+    verbose_name = _("Bubble Chart") 
+    is_timeseries = False # where it's used?
+
+    def query_obj(self):
+        form_data = self.form_data
+        d = super(BubbleViz, self).query_obj()
+        d['groupby'] = list({
+            form_data.get('series'),
+            form_data.get('entity')
+        })
+        self.x_metric = form_data.get('x')
+        self.y_metric = form_data.get('y')
+        self.z_metric = form_data.get('size') # z metric is size
+        self.entity = form_data.get('entity')
+        self.series = form_data.get('series')
+
+        d['metrics'] = [ # This is the metrics showed in SQL Query view
+            self.z_metric,
+            self.x_metric,
+            self.y_metric,
+        ]
+        if not all(d['metrics'] + [self.entity, self.series]):
+            raise Exception("Pick a metric for x, y and size")
+        return d
+
+    def get_data(self, df):
+        df['x'] = df[[self.x_metric]]
+        df['y'] = df[[self.y_metric]]
+        df['size'] = df[[self.z_metric]]
+        df['shape'] = 'circle'
+        df['group'] = df[[self.series]]
+
+        series = defaultdict(list)
+        for row in df.to_dict(orient='records'):
+            series[row['group']].append(row)
+        chart_data = []
+        for k, v in series.items():
+            chart_data.append({
+                'key': k,
+                'values': v})
+        return chart_data
+ 
+2. add BubbleViz into viz_types_list
+3. add bubble vizType code into assets/visualizations/nvd3_vis.js
+      function nvd3Vis(slice, payload) {
+      const drawGraph = function () {
+          let svg = d3.select(slice.selector).select('svg')
+          switch (vizType) {
+              case 'bubble': 
+                  chart = nv.models.scatterChart()
+                  chart.tooltip.contentGenerator(function (obj) {
+                      ...
+                      return  s;
+                  })
+                  break;
+                  }
+      }
+      nv.addgraph(drawGraph)
+      }
+      module.exports = nvd3Vis
+
+   used in main.js by "require('./nvd3_vis.js')
+
+4. add bubble map to assets/visualizations/main.js
+      export 
+5. in assets/javascripts/modules/superset.js,
+      import vizMap from "../../visualizations/main
+      ...
+      const px = function () {
+      ...
+      return {
+          getParam,
+          initFavStars,
+          Slice,
+        }
+      } ();
+      module.exports = px;
+    px is used in assets/javascripts/dashboard/Dashboard.jsx
+
+=========================
+Slice
+=========================
+Slice is a report or a view on data
+class Slice(Model, AuditMixinNullable, ImportMixin):
+__tablename__ = 'slices'
+id = Column(Integer, primary_key=True)
+
+class ImportMixin(object):
+#defined severall methods for dashboard manipulation
+class AuditMixinNullable(AuditMixin):
+class Model:
+#This is the flask_appbuilder.Model, check flask_appbuilder/models/sqla/__init__.py
+# It is indeed a SQLA table definition with ORM
+
+========================
+Viz
+========================
+viz.py is not  related to flask-appbuilder. It contains all visualizations that superset can render. It defines certain functions like "query_obj" to return data
+    class BaseViz(object):
+        def get_df(self, query_obj=None):
+            ...
+        def get_data(self, df):
+            return []
+        def query_obj(self):
+            return d;
+        def data(self):
+            return content
+    class NVD3Viz(BaseViz):
+        viz_type = None
+    class BubbleViz(NVD3Viz):
+        viz_type = "bubble"
+        fieldsets = ({...})
+    viz_types_list = [...] 
+
+
+
+=======================
+Flask-AppBuilder
+=======================
+Superset is built on top of flask_appbuilder
+In earlier superset, models.py is at top level, later its models/ directory. And same codes are put models/core.py
+in superset/__init__.py, defines the basic/minimum Flask-AppBuilder frame
+    app = Flask(__name__)
+    app.config.from_object(CONFIG_MODULE)
+    db = SQLA(app)
+    appbuilder=AppBuilder(app, db.session, ....)
+
+And in cli.py, flask_script is used. (runserver is not used?)
+    from flask_script import Manager
+    manager = Manager(app)
+
+Then in superset/bin/superset
+    manager.run() is called to run the app
+
+=========================
+Flask-AppBuilder::View
+=========================
+View defines what to be shown. Detail columns, strings, etc
+In views/core.py, views are added
+    # SupersetModelView is actually ModelView
+    class DatabaseView(SupersetModelView, DeleteMixin):
+        datamodel = SQLAInterface(models.Database)
+    appbuilder.add_view(DatabaseView, "Databases", ...)
+    class SlideModelView(SupersetModelView, DeleteMixin):
+        datamodel = SQLAInterface(models.Slice)
+        label_columns = {...}
+        search_columsn = {...}
+        list_columns = {...}
+        edit_columns = [...] # this is displayed when you click edit for slice
+        label_columns = {...} # showed in Slices view
+        ...
+    appbuilder.add_view(SliceModelView, "Slices", ...)
+    appbuilder.add_view_no_menu(Superset)
+
+
+=========================
+Flask-AppBuilder::Model
+=========================
+Model is SQLA declarative class (models/sqla/__init__.py), it will define table names automatcally.(not Mixin?) But you still can define __tablename__ if needed
+    @as_declarative(name='Model', metaclass=ModelDeclarativeMeta)
+    class Model(object):
+        __table_args__ = {'extend_existing': True}
+
+    # a slice is a report or view on data
+    class Slice(Model, AuditMixinNullable, ImportMixin):
+        __tablename__ = 'slices'
+        id = Column(Integer, primary_key=True)
+        datasource_id = Column(Integer)
+        datasource_type = Column(String(200)) 
+        datasource_name = Column(String(2000))
+        viz_type = Column(String(250))
+        params = Column(Text) # this is updated during Slice() instantiation
+        ...
+        export_fields = ('slice_name','datasource_type',...) # where it's used?
+
+

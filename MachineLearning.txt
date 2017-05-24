@@ -1,3 +1,6 @@
 Gradient Descent is very slow when data is huge, even if memory is big enough
 Stochastic Gradient Descent reduces data needed for each iteration so as to speed up the calculation, with the cost of exponetial iteration number increase
+Batch Gradient Descent
+Usually, increase iteration numbers to reduce calculation for every iteration is a practical way to speedup
+Matrix Direct Solve method is very fast when data is small
 
